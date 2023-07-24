@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+    <h1>Question {{ question_num + 1 }}</h1>
+    <form action="/answer" method="post">
+        <label for="choice">{{ question.question }}</label>
+        {% for choice in question.choices %}
+            <input type="radio" id="choice" name="choice" value="{{ choice }}">
+            <label for="choice">{{ choice }}</label><br>
+        {% endfor %}
+        <input type="submit" value="Submit">
+    </form>
+{% endblock content %}
+
+<!-- This template shows the current question number (question_num + 1 since question_id is zero-indexed) and a form that posts the user's answer to the /answer route.
+
+The form includes a set of radio buttons, one for each choice in the current question. The for loop iterates over all of the choices and creates a radio button for each one. The value attribute of each radio button is set to the choice text, so that when the form is submitted, the user's chosen answer will be sent to the server.-->
