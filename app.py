@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, redirect, flash
+from flask import Flask, request, render_template, redirect, flash, session
 from flask_debugtoolbar import DebugToolbarExtension
 
 app = Flask(__name__)
@@ -11,47 +11,56 @@ debug = DebugToolbarExtension(app)
 # Initialize response list 
 responses = []
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def show_survey_start():
     from surveys import satisfaction_survey
+    # if form submitted, clear responses from session 
+    if request.method == 'POST':
+        session['responses'] = []
+        return redirect('/questions/0')
     return render_template('start.html', survey=satisfaction_survey)
 
 # Route to handle questions 
-@app.route('/questions/<int:question_id>')
+@app.route('/questions/<int:question_id>') 
 def show_question(question_id):
     from surveys import satisfaction_survey
+    responses = session.get('responses')
 
-    # Redirect to correct page if out-of-order question is accessed
-    if question_id != len(responses):
-        # Show flash message about what's going wrong
-        flash("You're trying to access an invalid question.")
-        return redirect(f"/questions/{len(responses)}")
+    if responses is None:
+        # trying to access question too soon, redirecting to start page
+        return redirect('/')
+    
+    if len(responses) == len(satisfaction_survey.questions):
+        # All questions have been answered, redirect to thank you page
+        return redirect('/thanks')
 
-    # Redirect to thank you page if all questions have been answered
-    if question_id == len(satisfaction_survey.questions):
-        return redirect("/thanks")
-
-    # Normal case: retrieve and display the question
+    if len(responses) != question_id:
+        # Trying to access questions out of order.
+        flash("Invalid question id attempted.")
+        return redirect(f'/questions/{len(responses)}')
+    
     question = satisfaction_survey.questions[question_id]
     return render_template('question.html', question_num=question_id, question=question)
 
 
 @app.route('/answer', methods=['POST'])
 def handle_answer():
-    from surveys import satisfaction_survey
-
     # Get the answer from the form data
     answer = request.form['choice']
-
     # Append the answer to the responses list
+    responses = session['responses']
     responses.append(answer)
-
-    # Check if we've finished the survey
-    if len(responses) == len(satisfaction_survey.questions):
-        # The user has answered all questions - say thanks and end the survey
-        return render_template('thanks.html')
+    session['responses'] = responses
+    # Redirect to the next question
+    next_question = len(responses)
+    from surveys import satisfaction_survey
+    if next_question == len(satisfaction_survey.questions):
+        return redirect('/thanks')
     else:
-        # Redirect to the next question
-        next_question = len(responses)
         return redirect(f'/questions/{next_question}')
+
+
+@app.route('/thanks')
+def thanks():
+    return render_template('thanks.html')
 
